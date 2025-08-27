@@ -14,8 +14,18 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.ViewColumn.One,
             { enableScripts: true }
         );
+		const keyTypes = ["Primária", "Secundária"];
+		const keysByType = {
+			"Primária": ["CHAVE_1", "CHAVE_2", "CHAVE_3"],
+			"Secundária": ["CHAVE_A", "CHAVE_B", "CHAVE_C"]
+		};
+		const records = [
+			{ id: 1, nome: "Cliente A", saldo: 1200 },
+			{ id: 2, nome: "Cliente B", saldo: 3400 },
+			{ id: 3, nome: "Cliente C", saldo: -150 , sub : [ 10 , 15 , 16 ] }
+		];
 
-        panel.webview.html = getWebviewContent(mockData);
+		panel.webview.html = getWebviewContent(keyTypes, keysByType, records);
 
         // Comunicação Webview → Extensão
         panel.webview.onDidReceiveMessage(async (msg) => {
@@ -48,31 +58,10 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {}
 
-function getWebviewContent(data: any[]): string {
-    if (data.length === 0) {
-        return "<h3>Nenhum dado encontrado</h3>";
-    }
-
-    // Obtém os campos dinamicamente do primeiro registro
-    const fields = Object.keys(data[0]);
-
-    // Cabeçalho
-    const header = fields.map(f => `<th>${f}</th>`).join("") + "<th>Ações</th>";
-
-    // Linhas da tabela
-    const rows = data.map((r) => {
-        const cells = fields.map(f => `
-            <td contenteditable="true" data-id="${r.id}" data-field="${f}">
-                ${r[f]}
-            </td>
-        `).join("");
-        return `
-            <tr>
-                ${cells}
-                <td><button onclick="remove(${r.id})">Remover</button></td>
-            </tr>
-        `;
-    }).join("");
+function getWebviewContent(keyTypes: string[], keysByType: Record<string, string[]>, records: Record<string, any>[]) {
+    const initialType = keyTypes[0];
+    const initialKeys = keysByType[initialType] || [];
+    const keyItems = initialKeys.map((k, i) => `<li class="keyItem" data-index="${i}">${k}</li>`).join("");
 
     return /*html*/ `
     <!DOCTYPE html>
@@ -80,86 +69,130 @@ function getWebviewContent(data: any[]): string {
     <head>
         <meta charset="UTF-8">
         <style>
-            body { font-family: sans-serif; padding: 10px; }
-            table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-            th, td { border: 1px solid #ccc; padding: 5px; text-align: left; }
-            button { margin-right: 5px; }
-            select { padding: 5px; }
+            body { margin:0; padding:0; height:100vh; overflow:hidden; font-family:sans-serif; }
+            #container { display:flex; height:100%; width:100%; }
 
-            td[contenteditable="true"] {
-                background: inherit;
-                outline: none;
-                color: inherit;
-            }
-            td[contenteditable="true"]:focus {
-                background: #525151ff;
-                color: inherit ; /* fonte preta durante edição */
-            }
+            #leftPane { width:200px; min-width:100px; max-width:500px; border-right:1px solid #ccc; overflow:auto; padding:5px; box-sizing:border-box; }
+            #splitter { width:5px; cursor:col-resize; background: #ddd; }
+            #rightPane { flex:1; overflow:auto; padding:10px; box-sizing:border-box; }
+
+            .keyItem { padding:5px; cursor:pointer; }
+            .keyItem:hover { background:#eee; }
+            .selected { background: #007acc; color:white; }
+
+            ul.tree { list-style:none; padding-left:20px; }
+            ul.tree li { margin:2px 0; }
+            span.toggle { cursor:pointer; display:inline-block; width:16px; }
+            span.key { cursor:pointer; }
+            span.value[contenteditable="true"]:focus { background: #eef; color: #000; outline:none; }
+
+            select { width:100%; margin-bottom:5px; }
         </style>
     </head>
     <body>
-        <h2>ISAM Viewer</h2>
-        <label>Selecionar chave: 
-            <select id="keySelect">
-                ${fields.map(f => `<option value="${f}">${f}</option>`).join("")}
-            </select>
-        </label>
-
-        <table>
-            <thead>
-                <tr>${header}</tr>
-            </thead>
-            <tbody id="tableBody">${rows}</tbody>
-        </table>
+        <div id="container">
+            <div id="leftPane">
+                <select id="keyTypeSelect">
+                    ${keyTypes.map(t => `<option value="${t}">${t}</option>`).join("")}
+                </select>
+                <ul id="keyList">${keyItems}</ul>
+            </div>
+            <div id="splitter"></div>
+            <div id="rightPane"><p>Selecione uma chave para ver os detalhes.</p></div>
+        </div>
 
         <script>
             const vscode = acquireVsCodeApi();
-            const keySelect = document.getElementById("keySelect");
-            const tableBody = document.getElementById("tableBody");
+            const leftPane = document.getElementById("leftPane");
+            const splitter = document.getElementById("splitter");
+            const rightPane = document.getElementById("rightPane");
+            const keyTypeSelect = document.getElementById("keyTypeSelect");
+            const keyList = document.getElementById("keyList");
 
-            keySelect.addEventListener("change", () => {
-                vscode.postMessage({ command: "changeKey", key: keySelect.value });
-            });
+            const keysByType = ${JSON.stringify(keysByType)};
+            const records = ${JSON.stringify(records)};
 
-            function remove(id) {
-                vscode.postMessage({ command: "delete", id });
+            function renderKeys(type) {
+                const keys = keysByType[type] || [];
+                keyList.innerHTML = keys.map((k, i) => '<li class="keyItem" data-index="'+i+'">'+k+'</li>').join("");
+                attachKeyEvents();
             }
 
-            // captura edição inline
-            tableBody.addEventListener("blur", (e) => {
-                if (e.target.matches("td[contenteditable]")) {
-                    const id = parseInt(e.target.dataset.id);
-                    const field = e.target.dataset.field;
-                    const newValue = e.target.innerText;
-                    vscode.postMessage({
-                        command: "updateCell",
-                        id,
-                        field,
-                        value: newValue
+            function attachKeyEvents() {
+                document.querySelectorAll(".keyItem").forEach(el => {
+                    el.addEventListener("click", () => {
+                        document.querySelectorAll(".selected").forEach(s => s.classList.remove("selected"));
+                        el.classList.add("selected");
+                        const index = parseInt(el.dataset.index);
+                        const record = records[index];
+                        rightPane.innerHTML = renderTree(record);
+                        attachTreeEvents(rightPane);
                     });
+                });
+            }
+
+            function renderTree(obj) {
+                if (typeof obj !== "object" || obj === null) return '<span>'+obj+'</span>';
+                let html = '<ul class="tree">';
+                for (const [k,v] of Object.entries(obj)) {
+                    const hasChildren = typeof v === 'object' && v !== null;
+                    const icon = hasChildren ? '▶' : '';
+                    html += '<li>' +
+                        (hasChildren ? '<span class="toggle">'+icon+'</span>' : '') +
+                        '<span class="key">'+k+':</span> ';
+                    if (hasChildren) {
+                        html += renderTree(v);
+                    } else {
+                        html += '<span class="value" contenteditable="true" data-key="'+k+'">'+v+'</span>';
+                    }
+                    html += '</li>';
                 }
-            }, true);
+                html += '</ul>';
+                return html;
+            }
 
-            // atualiza tabela com dataset vindo da extensão
-            window.addEventListener("message", (event) => {
-                const msg = event.data;
-                if (msg.command === "update") {
-                    const fields = Object.keys(msg.data[0] || {});
-                    const header = fields.map(f => \`<th>\${f}</th>\`).join("") + "<th>Ações</th>";
-                    document.querySelector("thead tr").innerHTML = header;
-
-                    tableBody.innerHTML = msg.data.map(r =>
-                        \`<tr>\${
-                            fields.map(f => \`
-                                <td contenteditable="true" data-id="\${r.id}" data-field="\${f}">
-                                    \${r[f]}
-                                </td>\`
-                            ).join("")
+            function attachTreeEvents(container) {
+                container.querySelectorAll("span.toggle").forEach(t => {
+                    t.addEventListener("click", () => {
+                        const li = t.parentElement;
+                        const childUl = li.querySelector("ul");
+                        if (!childUl) return;
+                        if (childUl.style.display === 'none') {
+                            childUl.style.display = 'block';
+                            t.innerText = '▼';
+                        } else {
+                            childUl.style.display = 'none';
+                            t.innerText = '▶';
                         }
-                        <td><button onclick="remove(\${r.id})">Remover</button></td>
-                        </tr>\`
-                    ).join("");
-                }
+                    });
+                });
+
+                container.querySelectorAll("span.value").forEach(v => {
+                    v.addEventListener("blur", () => {
+                        const key = v.dataset.key;
+                        const value = v.innerText;
+                        console.log("Valor alterado", key, value);
+                        // Aqui você poderia enviar a alteração para a extensão
+                    });
+                });
+            }
+
+            // Inicial
+            attachKeyEvents();
+
+            keyTypeSelect.addEventListener("change", () => {
+                renderKeys(keyTypeSelect.value);
+                rightPane.innerHTML = "<p>Selecione uma chave para ver os detalhes.</p>";
+            });
+
+            // Splitter para redimensionamento do painel esquerdo
+            let isDragging = false;
+            splitter.addEventListener('mousedown', e => { isDragging = true; });
+            window.addEventListener('mouseup', e => { isDragging = false; });
+            window.addEventListener('mousemove', e => {
+                if (!isDragging) return;
+                const newWidth = e.clientX;
+                leftPane.style.width = newWidth + 'px';
             });
         </script>
     </body>
