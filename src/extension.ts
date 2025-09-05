@@ -1,67 +1,123 @@
 import * as vscode from "vscode";
+import { execFileSync, spawnSync } from "child_process";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 export function activate(context: vscode.ExtensionContext) {
-    let mockData = [
-        { id: 1, nome: "Cliente A", saldo: 1200 , deleted: false },
-        { id: 2, nome: "Cliente B", saldo: 3400 , deleted: false },
-        { id: 3, nome: "Cliente C", saldo: -150 , deleted: true  }
-    ];
 
-    const disposable = vscode.commands.registerCommand("isamViewer.open", () => {
-        const panel = vscode.window.createWebviewPanel(
-            "isamViewer",
-            "ISAM Viewer",
-            vscode.ViewColumn.One,
-            { enableScripts: true }
-        );
-		const keyTypes = ["Primária", "Secundária"];
-		const keysByType = {
-			"Primária": ["CHAVE_1", "CHAVE_2", "CHAVE_3"],
-			"Secundária": ["CHAVE_A", "CHAVE_B", "CHAVE_C"]
-		};
-		const records = [
-			{ id: 1, nome: "Cliente A", saldo: 1200 },
-			{ id: 2, nome: "Cliente B", saldo: 3400 },
-			{ id: 3, nome: "Cliente C", saldo: -150 , sub : [ 10 , 15 , 16 ] }
-		];
+    context.subscriptions.push(
+        vscode.window.registerCustomEditorProvider(
+            'isamViewer.binaryEditor',
+            new BinaryEditorProvider(context),
+            {
+                supportsMultipleEditorsPerDocument : true 
+            }
+        )
+    )
+}
 
-		panel.webview.html = getWebviewContent(keyTypes, keysByType, records);
+const outputChannel = vscode.window.createOutputChannel("ISAM Viewer");
 
-        // Comunicação Webview → Extensão
-        panel.webview.onDidReceiveMessage(async (msg) => {
-                switch (msg.command) {
-					case "changeKey":
-						mockData = mockData.map(r => ({ ...r, saldo: r.saldo + 50 }));
-						break;
+function escapeBuffer(buf: Buffer): string {
+  let result : string[] = [];
+  for (const byte of buf) {
+    // 0-9, A-Z, a-z
+    if ((byte >= 48 && byte <= 57) || (byte >= 65 && byte <= 90) || (byte >= 97 && byte <= 122) || byte == 0x20 ) {
+      result.push(`'${String.fromCharCode(byte)}'`);
+    } else {
+      result.push(`${byte.toString(16).padStart(2, "0")}`);
+    }
+  }
+  return result.join(',');
+}
 
-					case "delete":
-						mockData = mockData.filter(r => r.id !== msg.id);
-						break;
+class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
+    constructor(private context: vscode.ExtensionContext) {}
 
-					case "updateCell":
-						mockData = mockData.map(r => {
-							if (r.id === msg.id) {
-								return { ...r, [msg.field]: msg.field === "saldo" ? Number(msg.value) : msg.value };
-							}
-							return r;
-						});
-						break;
-				}
+    async openCustomDocument(
+        uri: vscode.Uri,
+        openContext: vscode.CustomDocumentOpenContext,
+        _token: vscode.CancellationToken
+    ): Promise<vscode.CustomDocument> {
+        return { uri , dispose: () => {} };
+    }
 
-            // Envia dataset atualizado
-            panel.webview.postMessage({ command: "update", data: mockData });
+    async resolveCustomEditor(
+        document: vscode.CustomDocument,
+        webviewPanel: vscode.WebviewPanel,
+        _token: vscode.CancellationToken
+    ): Promise<void> {
+        // Configurar webview
+        webviewPanel.webview.options = {
+            enableScripts: true ,                        
+        };
+
+        // if( !fs.existsSync( document.fileName.split('.')[0] + '.json' ) ){
+        //     const arquivos = await vscode.window.showOpenDialog({
+        //         canSelectMany: false, 
+        //         openLabel: 'Escolher arquivo',
+        //         filters: {
+        //             'Todos os Arquivos': ['cbl','CBL','idy','IDY']
+        //         }
+        //     });
+        // }
+
+        // const options = [ "Teste1" , "Teste2" , "Teste3" ];
+        // const register_selected = await vscode.window.showQuickPick(
+        //     options ,
+        //     { canPickMany : false }
+        // )
+
+        const command = `C:/SIFN/projetos/mf-export-symbols/build/debug/Exprcdl.exe`;
+        const fileName = path.win32.resolve( document.uri.fsPath );
+        const jsonFilename = path.format({ dir: fs.mkdtempSync( path.join(os.tmpdir(),'ISAMViewer')) , name: path.parse( fileName ).name , ext: ".json" })
+        const result = spawnSync( command , ["--json", fileName , "-o" , jsonFilename ] , { encoding: "utf-8" });
+
+        if( !fs.existsSync(jsonFilename) ){
+            throw "Error on exec export" ;
+        }
+        let dados ;
+        try{
+            dados = JSON.parse(fs.readFileSync(jsonFilename,'utf-8'));
+        }catch(e){
+            console.error(e);
+        }
+        
+		const records = dados.records ;
+        
+        let keysByType : Map<string,string[]> = new Map() , keyTypes : string[] = [] ;
+        for( const [ key_name , defs ] of Object.entries(dados.key_def) ){
+            const def : any = defs ;
+            keyTypes.push(key_name);
+            keysByType.set( key_name , 
+                records.map(
+                    (node:any)=> Array.from(def).reduce((prev:string,curr:any)=> {
+                        const buffer = Buffer.from(node.record,'utf-8');
+                        const start_pos = parseInt(curr.offset);
+                        const end_pos = start_pos + parseInt(curr.length) ;
+                        const new_value = buffer.subarray(start_pos,end_pos);
+                        return prev + escapeBuffer(new_value) + ',';
+                    },"")
+                )
+            );
+        }
+
+		webviewPanel.webview.html = getWebviewContent(keyTypes, keysByType, records);
+        webviewPanel.webview.onDidReceiveMessage(message =>{
+            switch( message.command ){
+                case "increaseLimit":
+                    outputChannel.appendLine("Novo limit:" + message.newLimit );
+            }
         });
-    });
-
-    context.subscriptions.push(disposable);
+    }
 }
 
 export function deactivate() {}
 
-function getWebviewContent(keyTypes: string[], keysByType: Record<string, string[]>, records: Record<string, any>[]) {
+function getWebviewContent(keyTypes: string[], keysByType: Map<string, string[]>, records: Record<string, any>[]) {
     const initialType = keyTypes[0];
-    const initialKeys = keysByType[initialType] || [];
-    const keyItems = initialKeys.map((k, i) => `<li class="keyItem" data-index="${i}">${k}</li>`).join("");
+    keyTypes = ["Select a key"].concat(keyTypes) ;
 
     return /*html*/ `
     <!DOCTYPE html>
@@ -72,13 +128,57 @@ function getWebviewContent(keyTypes: string[], keysByType: Record<string, string
             body { margin:0; padding:0; height:100vh; overflow:hidden; font-family:sans-serif; }
             #container { display:flex; height:100%; width:100%; }
 
-            #leftPane { width:200px; min-width:100px; max-width:500px; border-right:1px solid #ccc; overflow:auto; padding:5px; box-sizing:border-box; }
+            #leftPane { width:800px; min-width:300px; max-width:1200px; border-right:1px solid #ccc; overflow:auto; padding:5px; box-sizing:border-box; }
             #splitter { width:5px; cursor:col-resize; background: #ddd; }
             #rightPane { flex:1; overflow:auto; padding:10px; box-sizing:border-box; }
+            #refreshBtn {
+                background-color: var(--vscode-button-background);
+                color: var(--vscode-button-foreground);
+                border: none;
+                cursor: pointer;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            #refreshBtn:hover { background-color: var(--vscode-button-hoverBackground); }
+            #keyTypeSelect {
+                background-color: var(--vscode-input-background);
+                color: var(--vscode-input-foreground);
+                border: 1px solid var(--vscode-input-border);
+                border-radius: 4px;
+                padding: 2px 6px;
+                font-size: 13px;
+            }
+            #leftHeader {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: 8px;
+                padding: 4px 6px;
+                background-color: var(--vscode-sideBar-background);
+                border-bottom: 1px solid var(--vscode-editorGroup-border);
+                position: sticky ;
+                top: 0 ;
+                z-index: 10 ;
+            }
+
+            table.keyBytes {
+                border-collapse: collapse;
+                font-family: monospace;
+            }
+
+            table.keyBytes td {
+                border: 2px solid var(--vscode-editor-hoverHighlightBackground);
+                padding: 0px 0px;
+                text-align: center;
+                font-size: 12px;
+                width: 20px;
+                height: 20px;
+            }
 
             .keyItem { padding:5px; cursor:pointer; }
-            .keyItem:hover { background:#eee; }
-            .selected { background: #007acc; color:white; }
+            .keyItem:hover { background: var(--vscode-editor-hoverHighlightBackground); }
+            .selected { background: var(--vscode-button-background) ; color:white; }
 
             ul.tree { list-style:none; padding-left:20px; }
             ul.tree li { margin:2px 0; }
@@ -92,10 +192,13 @@ function getWebviewContent(keyTypes: string[], keysByType: Record<string, string
     <body>
         <div id="container">
             <div id="leftPane">
-                <select id="keyTypeSelect">
-                    ${keyTypes.map(t => `<option value="${t}">${t}</option>`).join("")}
-                </select>
-                <ul id="keyList">${keyItems}</ul>
+                <div id="leftHeader">
+                    <button id="refreshBtn" title="Recarregar">⟳</button>
+                    <select id="keyTypeSelect">
+                        ${keyTypes.map(t => `<option value="${t}">${t}</option>`).join("")}
+                    </select>
+                </div>
+                <ul id="keyList"></ul>
             </div>
             <div id="splitter"></div>
             <div id="rightPane"><p>Selecione uma chave para ver os detalhes.</p></div>
@@ -109,12 +212,26 @@ function getWebviewContent(keyTypes: string[], keysByType: Record<string, string
             const keyTypeSelect = document.getElementById("keyTypeSelect");
             const keyList = document.getElementById("keyList");
 
-            const keysByType = ${JSON.stringify(keysByType)};
+            const keysByType = ${JSON.stringify(Object.fromEntries(keysByType))};
             const records = ${JSON.stringify(records)};
+
+            function isPrintable(code) {
+                return code >= 32 && code <= 126;
+            }
+
+            function renderKeyBytes(str) {
+                let html = '<table class="keyBytes"><tr>';
+                const bytes = str.split(',');
+                for( let i = 0 ; i < bytes.length - 1 ; i++ ){
+                    html += '<td>' + bytes[i] + '</td>';
+                }
+                html += '</tr></table>';
+                return html;
+            }
 
             function renderKeys(type) {
                 const keys = keysByType[type] || [];
-                keyList.innerHTML = keys.map((k, i) => '<li class="keyItem" data-index="'+i+'">'+k+'</li>').join("");
+                keyList.innerHTML = keys.map((k, i) => '<li class="keyItem" data-index=\"' + i.toString() + '\">' + renderKeyBytes(k) + '</li>').join("");
                 attachKeyEvents();
             }
 
@@ -193,6 +310,16 @@ function getWebviewContent(keyTypes: string[], keysByType: Record<string, string
                 if (!isDragging) return;
                 const newWidth = e.clientX;
                 leftPane.style.width = newWidth + 'px';
+            });
+
+            leftPane.addEventListener("scroll",()=>{
+                if( leftPane.scrollTop + leftPane.clientHeight >= leftPane.scrollHeight - 10 ){
+                    vscode.postMessage({
+                        command: "increaseLimit",
+                        newLimit: 200 ,
+                        keyType: keyTypeSelect.value 
+                    });
+                }
             });
         </script>
     </body>

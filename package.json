@@ -18,6 +18,18 @@
         "command": "isamViewer.open",
         "title": "Abrir ISAM Viewer"
       }
+    ],
+    "customEditors": [
+      {
+        "viewType": "isamViewer.binaryEditor",
+        "displayName": "Editor ISAM",
+        "priority": "option",
+        "selector": [
+          {
+            "filenamePattern": "*.dat"
+          }
+        ]
+      }
     ]
   },
   "scripts": {
