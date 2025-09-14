@@ -17,21 +17,6 @@ export function activate(context: vscode.ExtensionContext) {
     )
 }
 
-const outputChannel = vscode.window.createOutputChannel("ISAM Viewer");
-
-function escapeBuffer(buf: Buffer): string {
-  let result : string[] = [];
-  for (const byte of buf) {
-    // 0-9, A-Z, a-z
-    if ((byte >= 48 && byte <= 57) || (byte >= 65 && byte <= 90) || (byte >= 97 && byte <= 122) || byte == 0x20 ) {
-      result.push(`'${String.fromCharCode(byte)}'`);
-    } else {
-      result.push(`${byte.toString(16).padStart(2, "0")}`);
-    }
-  }
-  return result.join(',');
-}
-
 class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
     constructor(private context: vscode.ExtensionContext) {}
 
@@ -53,77 +38,96 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
             enableScripts: true ,                        
         };
 
-        // if( !fs.existsSync( document.fileName.split('.')[0] + '.json' ) ){
-        //     const arquivos = await vscode.window.showOpenDialog({
-        //         canSelectMany: false, 
-        //         openLabel: 'Escolher arquivo',
-        //         filters: {
-        //             'Todos os Arquivos': ['cbl','CBL','idy','IDY']
-        //         }
-        //     });
-        // }
-
-        // const options = [ "Teste1" , "Teste2" , "Teste3" ];
-        // const register_selected = await vscode.window.showQuickPick(
-        //     options ,
-        //     { canPickMany : false }
-        // )
-
-        const command = `C:/SIFN/projetos/mf-export-symbols/build/debug/Exprcdl.exe`;
+        const command = `C:/SIFN/projetos/mf-export-symbols/build/release/Exprcdl.exe`;
         const fileName = path.win32.resolve( document.uri.fsPath );
-        const jsonFilename = path.format({ dir: fs.mkdtempSync( path.join(os.tmpdir(),'ISAMViewer')) , name: path.parse( fileName ).name , ext: ".json" })
-        const result = spawnSync( command , ["--json", fileName , "-o" , jsonFilename ] , { encoding: "utf-8" });
+        const result = spawnSync( command , ["--json", fileName , "--only-key" ] , { encoding: "utf-8" });
 
-        if( !fs.existsSync(jsonFilename) ){
+        if( result.status != 0 ){
             throw "Error on exec export" ;
         }
-        let dados ;
-        try{
-            dados = JSON.parse(fs.readFileSync(jsonFilename,'utf-8'));
-        }catch(e){
-            console.error(e);
-        }
-        
-		const records = dados.records ;
-        
-        let keysByType : Map<string,string[]> = new Map() , keyTypes : string[] = [] ;
-        for( const [ key_name , defs ] of Object.entries(dados.key_def) ){
-            const def : any = defs ;
-            keyTypes.push(key_name);
-            keysByType.set( key_name , 
-                records.map(
-                    (node:any)=> Array.from(def).reduce((prev:string,curr:any)=> {
-                        const buffer = Buffer.from(node.record,'utf-8');
-                        const start_pos = parseInt(curr.offset);
-                        const end_pos = start_pos + parseInt(curr.length) ;
-                        const new_value = buffer.subarray(start_pos,end_pos);
-                        return prev + escapeBuffer(new_value) + ',';
-                    },"")
-                )
-            );
-        }
 
-        const htmlPath = path.join(this.context.extensionPath,'media','index.html');
+		const { key_def } = JSON.parse(result.stdout);
+        const keyTypes : string[] = Object.entries(key_def).map(([key_name,def])=>key_name);
+
         const styleUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "style.css"));
+        const scriptPath = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "main.js"));
+        const htmlPath = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "index.html"));
 
-        let html = fs.readFileSync(htmlPath,'utf-8');
-		webviewPanel.webview.html = html.replace("{{styleUri}}", styleUri.toString() ) ;        
+        const page_size = 24 ;
+        let page_num = 0 , page_max = 1 ;
+        let selectedKeyType = keyTypes[0];
+
+        const get_keys = function ( key_name : string , page : number = 0  ) : { key : string , index: Number }[]  {
+            const key_id = key_name.split('_')[1]??-1 + 1 ;
+
+            const result_keys = spawnSync(command, ["--json",fileName,"--key",key_id.toString()] , { encoding: "utf-8" , maxBuffer: 99999999 });
+            try{
+                const { keys } = JSON.parse(result_keys.stdout);
+                const start_page = page_num*page_size 
+                const end_page = ( page_num + 1 ) * page_size ;
+                page_max = Math.trunc( keys.length / page_size ) + 1 ;
+                return keys.slice( start_page , end_page ) ;
+            }catch(e:any){
+                vscode.window.showErrorMessage(e.toString());
+                return [];
+            }
+        }
+
+        const get_record = function( offset : number ){
+            const result_record = spawnSync(command, ["--json",fileName,"--record-offset", offset.toString()] , { encoding: "utf-8" });
+            try{
+                const { records } = JSON.parse(result_record.stdout);
+                return records[0] ;
+            }catch(e:any){
+                vscode.window.showErrorMessage(e.toString());
+            }
+        }
+
+        let html = fs.readFileSync(htmlPath.fsPath,'utf-8');
+		webviewPanel.webview.html = html.replace("{{styleUri}}", styleUri.toString() ).replace("{{scriptUri}}", scriptPath.toString() ) ;        
         
         webviewPanel.webview.onDidReceiveMessage(message =>{
             switch( message.command ){
-                case "increaseLimit":
-                    outputChannel.appendLine("Novo limit:" + message.newLimit );
-                    break;
                 case "selectedKeyType":
-                    console.log("selectedKeyType");
-                    const keys = keysByType.get(message.type)??[];
+                    selectedKeyType = message.type ;
+                    webviewPanel.webview.postMessage({
+                        command: 'updateKeys',
+                        keys : get_keys(selectedKeyType) ,
+                    });
+                    break;
+                case "updateContent":
+                    const new_content = get_record(message.index) ;
+                    const def_sel = key_def[selectedKeyType] ;
+                    webviewPanel.webview.postMessage({
+                        command: 'updateContent',
+                        content: new_content,
+                        key_def: def_sel
+                    })
+                    break ;
+                case "next": {
+                    page_num = page_num + 1 < page_max ? page_num + 1 : page_num ;
+                    const keys = get_keys(selectedKeyType);
                     webviewPanel.webview.postMessage({
                         command: 'updateKeys',
                         keys : keys ,
                     });
                     break;
+                }
+                case "prev":{
+                    page_num = page_num > 0 ? page_num - 1 : 0 ;
+                    const keys = get_keys(selectedKeyType);
+                    webviewPanel.webview.postMessage({
+                        command: 'updateKeys',
+                        keys : keys ,
+                    });
+                    break;
+                }
                 default:
-                    webviewPanel.webview.postMessage({ command: 'initData' , keyTypes: keyTypes , keys: keysByType.get(keyTypes[0])??[] , records: records  });
+                    webviewPanel.webview.postMessage({ 
+                        command: 'initData' , 
+                        keyTypes: keyTypes , 
+                        keys: get_keys(keyTypes[0]),
+                    });
             }
         });
     }

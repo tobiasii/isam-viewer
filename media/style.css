@@ -45,9 +45,11 @@ table.keyBytes td {
     padding: 0px 0px;
     text-align: center;
     font-size: 12px;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    min-width: 22px;
+    height: 22px;
 }
+.keyByteItemHex{ color: green ; }
 
 .keyItem { padding:5px; cursor:pointer; }
 .keyItem:hover { background: var(--vscode-editor-hoverHighlightBackground); }
@@ -60,3 +62,82 @@ span.key { cursor:pointer; }
 span.value[contenteditable="true"]:focus { background: #eef; color: #000; outline:none; }
 
 select { width:100%; margin-bottom:5px; }
+
+.hexTable {
+  font-family: monospace;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.hexTable th, .hexTable td {
+  padding: 2px 4px;
+  text-align: center;
+  border: 1px solid var(--vscode-editorGroup-border);
+}
+
+.hexTable td:hover {
+    background: var(--vscode-editor-hoverHighlightBackground);
+}
+
+.hexTableKey {
+  background: var(--vscode-button-background);
+}
+
+.hexTable th {
+  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.hexOffset {
+  text-align: left;
+  font-weight: bold;
+  background: var(--vscode-sideBar-background);
+  color: var(--vscode-sideBar-foreground);
+}
+
+.hexAscii {
+  text-align: left;
+  padding-left: 8px;
+  font-weight: normal;
+}
+
+#rightHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-bottom: 1px solid var(--vscode-editorGroup-border);
+  background-color: var(--vscode-editor-background);
+}
+
+#viewMode {
+  background: var(--vscode-dropdown-background);
+  color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border);
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  height: 22px;
+}
+
+#openInHex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-size: 24px;
+  border: none;
+  padding: 0;
+  border-radius: 2px;
+  cursor: pointer;
+  height: 28px;
+  width: 28px;
+}
+
+#openInHex:hover {
+  background: var(--vscode-button-hoverBackground);
+}

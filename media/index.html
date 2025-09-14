@@ -9,154 +9,27 @@
             <div id="leftPane">
                 <div id="leftHeader">
                     <button id="refreshBtn" title="Recarregar">⟳</button>
-                    <select id="keyTypeSelect"><option value="teste">key_0</option>
-                    </select>
+                    <button id="prevBtn" title="prev page">Prev</button>
+                    <button id="nextBtn" title="next page">Next</button>
+                    <select id="keyTypeSelect"></select>
                 </div>
                 <ul id="keyList"></ul>
             </div>
             <div id="splitter"></div>
-            <div id="rightPane"><p>Selecione uma chave para ver os detalhes.</p></div>
+            <div id="rightPane">
+                <div id="rightHeader">
+                    <select id="viewMode">
+                        <option value="hex">Hex</option>
+                        <option value="custom1">Custom1</option>
+                    </select>
+                    <button id="openInHex" title="Abrir no Hex Editor">🗎</button>
+                </div>
+                <div id="rightContent">
+                    <p>Selecione uma chave para ver os detalhes.</p>
+                </div>
+            </div>
         </div>
 
-        <script>
-            const vscode = acquireVsCodeApi();
-            const leftPane = document.getElementById("leftPane");
-            const splitter = document.getElementById("splitter");
-            const rightPane = document.getElementById("rightPane");
-            const keyTypeSelect = document.getElementById("keyTypeSelect");
-            const keyList = document.getElementById("keyList");
-
-            let records = [] ;
-
-            function isPrintable(code) {
-                return code >= 32 && code <= 126;
-            }
-
-            function renderKeyBytes(str) {
-                let html = '<table class="keyBytes"><tr>';
-                const bytes = str.split(',');
-                for( let i = 0 ; i < bytes.length - 1 ; i++ ){
-                    html += '<td>' + bytes[i] + '</td>';
-                }
-                html += '</tr></table>';
-                return html;
-            }
-
-            function renderKeys(keys) {
-                keyList.innerHTML = keys.map((k, i) => '<li class="keyItem" data-index=\"' + i.toString() + '\">' + renderKeyBytes(k) + '</li>').join("");
-                attachKeyEvents();
-            }
-
-            function renderKeysTypes(keyTypes) {
-                keyTypeSelect.innerHTML = keyTypes.map(t=>'<option value=\"' + t + '\">' + t + '</option>');
-            }
-
-            function attachKeyEvents() {
-                document.querySelectorAll(".keyItem").forEach(el => {
-                    el.addEventListener("click", () => {
-                        document.querySelectorAll(".selected").forEach(s => s.classList.remove("selected"));
-                        el.classList.add("selected");
-                        const index = parseInt(el.dataset.index);
-                        const record = records[index];
-                        rightPane.innerHTML = renderTree(record);
-                        attachTreeEvents(rightPane);
-                    });
-                });
-            }
-
-            function renderTree(obj) {
-                if (typeof obj !== "object" || obj === null) return '<span>'+obj+'</span>';
-                let html = '<ul class="tree">';
-                for (const [k,v] of Object.entries(obj)) {
-                    const hasChildren = typeof v === 'object' && v !== null;
-                    const icon = hasChildren ? '▶' : '';
-                    html += '<li>' +
-                        (hasChildren ? '<span class="toggle">'+icon+'</span>' : '') +
-                        '<span class="key">'+k+':</span> ';
-                    if (hasChildren) {
-                        html += renderTree(v);
-                    } else {
-                        html += '<span class="value" contenteditable="true" data-key="'+k+'">'+v+'</span>';
-                    }
-                    html += '</li>';
-                }
-                html += '</ul>';
-                return html;
-            }
-
-            function attachTreeEvents(container) {
-                container.querySelectorAll("span.toggle").forEach(t => {
-                    t.addEventListener("click", () => {
-                        const li = t.parentElement;
-                        const childUl = li.querySelector("ul");
-                        if (!childUl) return;
-                        if (childUl.style.display === 'none') {
-                            childUl.style.display = 'block';
-                            t.innerText = '▼';
-                        } else {
-                            childUl.style.display = 'none';
-                            t.innerText = '▶';
-                        }
-                    });
-                });
-
-                container.querySelectorAll("span.value").forEach(v => {
-                    v.addEventListener("blur", () => {
-                        const key = v.dataset.key;
-                        const value = v.innerText;
-                        console.log("Valor alterado", key, value);
-                        // Aqui você poderia enviar a alteração para a extensão
-                    });
-                });
-            }
-
-            keyTypeSelect.addEventListener("change", () => {
-                rightPane.innerHTML = "<p>Selecione uma chave para ver os detalhes.</p>";
-                vscode.postMessage({
-                    command: "selectedKeyType",
-                    type: keyTypeSelect.value
-                })
-            });
-
-            // Splitter para redimensionamento do painel esquerdo
-            let isDragging = false;
-            splitter.addEventListener('mousedown', e => { isDragging = true; });
-            window.addEventListener('mouseup', e => { isDragging = false; });
-            window.addEventListener('mousemove', e => {
-                if (!isDragging) return;
-                const newWidth = e.clientX;
-                leftPane.style.width = newWidth + 'px';
-            });
-
-            window.addEventListener('message',event=>{
-                const message = event.data;
-                switch(message.command){
-                    case 'updateKeys':
-                        renderKeys(message.keys);
-                        break;
-                    case 'initData':
-                        renderKeysTypes(message.keyTypes);
-                        renderKeys(message.keys);
-                        records = message.records ;
-                        break;
-                    default:
-                        vscode.postMessage({comand:''});
-                }
-            });
-
-            leftPane.addEventListener("scroll",()=>{
-                if( leftPane.scrollTop + leftPane.clientHeight >= leftPane.scrollHeight - 10 ){
-                    vscode.postMessage({
-                        command: "increaseLimit",
-                        newLimit: 200 ,
-                        keyType: keyTypeSelect.value 
-                    });
-                }
-            });
-
-            window.addEventListener("DOMContentLoaded", () => {
-                vscode.postMessage({comand:'init'});
-            });
-        </script>
+        <script src="{{scriptUri}}"></script>
     </body>
 </html>
