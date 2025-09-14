@@ -54,19 +54,16 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
         const htmlPath = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "index.html"));
 
         const page_size = 24 ;
-        let page_num = 0 , page_max = 1 ;
+        let page_num = 0 ;
         let selectedKeyType = keyTypes[0];
 
         const get_keys = function ( key_name : string , page : number = 0  ) : { key : string , index: Number }[]  {
             const key_id = key_name.split('_')[1]??-1 + 1 ;
 
-            const result_keys = spawnSync(command, ["--json",fileName,"--key",key_id.toString()] , { encoding: "utf-8" , maxBuffer: 99999999 });
+            const result_keys = spawnSync(command, ["--json",fileName,"--key",key_id.toString(),"--page",page_num.toString(),"--page-size",page_size.toString()] , { encoding: "utf-8" , maxBuffer: 99999999 });
             try{
                 const { keys } = JSON.parse(result_keys.stdout);
-                const start_page = page_num*page_size 
-                const end_page = ( page_num + 1 ) * page_size ;
-                page_max = Math.trunc( keys.length / page_size ) + 1 ;
-                return keys.slice( start_page , end_page ) ;
+                return keys ;
             }catch(e:any){
                 vscode.window.showErrorMessage(e.toString());
                 return [];
@@ -93,6 +90,7 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     webviewPanel.webview.postMessage({
                         command: 'updateKeys',
                         keys : get_keys(selectedKeyType) ,
+                        page:  page_num 
                     });
                     break;
                 case "updateContent":
@@ -105,12 +103,15 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     })
                     break ;
                 case "next": {
-                    page_num = page_num + 1 < page_max ? page_num + 1 : page_num ;
+                    page_num = page_num + 1 ;
                     const keys = get_keys(selectedKeyType);
                     webviewPanel.webview.postMessage({
                         command: 'updateKeys',
                         keys : keys ,
+                        page : page_num 
                     });
+                    if( keys.length < page_size )
+                        page_num = page_num - 1 ;
                     break;
                 }
                 case "prev":{
@@ -119,14 +120,26 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     webviewPanel.webview.postMessage({
                         command: 'updateKeys',
                         keys : keys ,
+                        page : page_num 
                     });
                     break;
+                }
+                case "page":{
+                    page_num = message.page ;
+                    const keys = get_keys( selectedKeyType );
+                    webviewPanel.webview.postMessage({
+                        command: 'updateKeys',
+                        keys : keys ,
+                        page : page_num 
+                    });
                 }
                 default:
                     webviewPanel.webview.postMessage({ 
                         command: 'initData' , 
                         keyTypes: keyTypes , 
-                        keys: get_keys(keyTypes[0]),
+                        selectedKeyType: selectedKeyType ,
+                        keys: get_keys(selectedKeyType),
+                        page: page_num 
                     });
             }
         });

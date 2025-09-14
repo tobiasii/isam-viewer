@@ -8,9 +8,10 @@
         <div id="container">
             <div id="leftPane">
                 <div id="leftHeader">
-                    <button id="refreshBtn" title="Recarregar">⟳</button>
-                    <button id="prevBtn" title="prev page">Prev</button>
-                    <button id="nextBtn" title="next page">Next</button>
+                    <button class="lhBtn" id="refreshBtn" title="Recarregar">⟳</button>
+                    <button class="lhBtn" id="prevBtn" title="prev page">◀</button>
+                    <input  id="pageNum" type="number" min="0" step="1">
+                    <button class="lhBtn" id="nextBtn" title="next page">▶</button>
                     <select id="keyTypeSelect"></select>
                 </div>
                 <ul id="keyList"></ul>

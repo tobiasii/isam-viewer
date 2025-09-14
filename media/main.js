@@ -7,6 +7,7 @@ const keyTypeSelect = document.getElementById("keyTypeSelect");
 const keyList = document.getElementById("keyList");
 const nextPage = document.getElementById("nextBtn");
 const prevPage = document.getElementById("prevBtn");
+const pageNum = document.getElementById("pageNum");
 const viewMode = document.getElementById("viewMode");
 
 let limit = 30 ;
@@ -177,6 +178,7 @@ window.addEventListener('message',event=>{
     switch(message.command){
         case 'updateKeys':
             renderKeys(message.keys);
+            pageNum.value = message.page ;
             break;
         case 'updateContent':
             renderRightPane(message.content,message.key_def);
@@ -184,6 +186,8 @@ window.addEventListener('message',event=>{
         case 'initData':
             renderKeysTypes(message.keyTypes);
             renderKeys(message.keys);
+            pageNum.value = message.page ;
+            keyTypeSelect.value = message.selectedKeyType ;
             break;
     }
 });
@@ -194,6 +198,10 @@ nextPage.addEventListener('click',()=>{
 
 prevPage.addEventListener('click',()=>{
     vscode.postMessage({command: 'prev',type: keyTypeSelect.value})
+});
+
+pageNum.addEventListener('change',()=>{
+    vscode.postMessage({command: 'page', page: pageNum.value })
 });
 
 window.addEventListener("DOMContentLoaded", () => {
