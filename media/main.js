@@ -54,6 +54,7 @@ function attachKeyEvents() {
 }
 
 viewMode.addEventListener("change", () => {
+    vscode.postMessage({command: 'viewMode', viewMode: viewMode.value  })
     vscode.postMessage({command:'updateContent', index: item_index, mode: viewMode.value });
 });
 
@@ -61,11 +62,14 @@ function renderRightPane(content,key_def) {
     const mode = viewMode.value;
     if (mode === "hex") {
         rightContent.innerHTML = renderHex(content,key_def);
-    } else if (mode === "custom1") {
+    } else {
         rightContent.innerHTML = renderTree(content);
-    } else if (mode === "custom2") {
-        rightContent.innerHTML = renderCustom2(content);
+        attachTreeEvents(rightContent);
     }
+}
+
+function renderViewMode(modes) {
+    viewMode.innerHTML = modes.map(t=>'<option value=\"' + t.value + '\">' + t.text + '</option>');
 }
 
 function renderHex(content,key_def) {
@@ -113,16 +117,18 @@ function renderHex(content,key_def) {
 function renderTree(obj) {
     if (typeof obj !== "object" || obj === null) return '<span>'+obj+'</span>';
     let html = '<ul class="tree">';
-    for (const [k,v] of Object.entries(obj)) {
-        const hasChildren = typeof v === 'object' && v !== null;
-        const icon = hasChildren ? '▶' : '';
+    for (const [k,v] of Object.entries(obj).filter(([k,v])=> k != 'picture' ) ) {
+        const hasChildren = typeof v === 'object' && v !== null && Object.keys(v).filter((k)=>k !== 'picture' && k !== 'value' ).length > 0;
+        const icon = hasChildren ? '▼' : ' ';
+        const title = v.picture ? `title=${v.picture}` : '';
+        const value = v.value??v ;
         html += '<li>' +
-            (hasChildren ? '<span class="toggle">'+icon+'</span>' : '') +
-            '<span class="key">'+k+':</span> ';
+            `<span class="key" ${title}>`+k+':</span> ' +
+            (hasChildren ? '<span class="toggle">'+icon+'</span>' : '') ;
         if (hasChildren) {
             html += renderTree(v);
         } else {
-            html += '<span class="value" contenteditable="true" data-key="'+k+'">'+v+'</span>';
+            html += `<span class="value" ${title} contenteditable="true" data-key="`+k+'">'+value+'</span>';
         }
         html += '</li>';
     }
@@ -186,8 +192,10 @@ window.addEventListener('message',event=>{
         case 'initData':
             renderKeysTypes(message.keyTypes);
             renderKeys(message.keys);
+            renderViewMode(message.viewModes);
             pageNum.value = message.page ;
             keyTypeSelect.value = message.selectedKeyType ;
+            viewMode.value = message.selectedViewMode ;
             break;
     }
 });

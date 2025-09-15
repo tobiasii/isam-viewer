@@ -74,10 +74,10 @@ table.keyBytes td {
 .selected { background: var(--vscode-button-background) ; color:white; }
 
 ul.tree { list-style:none; padding-left:20px; }
-ul.tree li { margin:2px 0; }
+ul.tree li { margin:2px 0; padding: 2px 4px; }
 span.toggle { cursor:pointer; display:inline-block; width:16px; }
 span.key { cursor:pointer; }
-span.value[contenteditable="true"]:focus { background: #eef; color: #000; outline:none; }
+span.value[contenteditable="false"]:focus { background: #eef; color: #000; outline:none; }
 
 select { width:100%; margin-bottom:5px; }
 
