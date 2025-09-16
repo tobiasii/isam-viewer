@@ -53,7 +53,7 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
         }
 
         const recordLayoutFile = path.format({dir: path.dirname(fileName),name: path.parse(fileName).name,ext:'.json'});
-        const recordlayout = fs.existsSync(recordLayoutFile) ? JSON.parse(fs.readFileSync(recordLayoutFile,{encoding:'utf-8'})) : undefined ;
+        let recordlayout = fs.existsSync(recordLayoutFile) ? JSON.parse(fs.readFileSync(recordLayoutFile,{encoding:'utf-8'})) : undefined ;
 
 		const { key_def } = JSON.parse(result.stdout);
         const keyTypes : string[] = Object.entries(key_def).map(([key_name,def])=>key_name);
@@ -190,6 +190,19 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
                 }
                 case "viewMode":{
                     selectedViewMode = message.viewMode ;
+                    break ;
+                }
+                case "openRLayout":{
+                    vscode.window.showOpenDialog({canSelectMany:false,filters:{'Todos':['json']}}).then((uri)=>{
+                        if( uri?.at(0)?.fsPath ){
+                            const path = uri.at(0)?.fsPath??"" ;
+                            const tree : any = fs.existsSync(path) ? JSON.parse(fs.readFileSync(path,{encoding:'utf-8'})) : undefined ;
+                            if( tree ){
+                                recordlayout = tree                                 
+                                webviewPanel.webview.postMessage({command: 'updateViewModes', viewModes: get_viewModes() });
+                            }
+                        }
+                    });
                     break ;
                 }
                 default:

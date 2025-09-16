@@ -9,6 +9,7 @@ const nextPage = document.getElementById("nextBtn");
 const prevPage = document.getElementById("prevBtn");
 const pageNum = document.getElementById("pageNum");
 const viewMode = document.getElementById("viewMode");
+const openRLayout = document.getElementById("openRLayout");
 
 let limit = 30 ;
 let item_index ;
@@ -34,8 +35,12 @@ function renderKeyBytes(str) {
 }
 
 function renderKeys(keys) {
-    keyList.innerHTML = keys.map(({value,offset}) => '<li class="keyItem" data-index=\"' + offset.toString() + '\">' + renderKeyBytes(value) + '</li>').join("");
-    attachKeyEvents();
+    if( keys ){
+        keyList.innerHTML = keys.map(({value,offset}) => '<li class="keyItem" data-index=\"' + offset.toString() + '\">' + renderKeyBytes(value) + '</li>').join("");
+        attachKeyEvents();
+    }else{
+        keyList.innerHTML = "<p>Empty</p>"
+    }
 }
 
 function renderKeysTypes(keyTypes) {
@@ -189,6 +194,13 @@ window.addEventListener('message',event=>{
         case 'updateContent':
             renderRightPane(message.content,message.key_def);
             break;
+        case 'updateViewModes':
+            renderViewMode(message.viewModes);
+            if( !message.viewModes.find((view)=>view.value == viewMode.value ) ){
+                vscode.postMessage({command: 'viewMode', viewMode: viewMode.value[message.viewMode[0]]  })
+                vscode.postMessage({command:'updateContent', index: item_index, mode: viewMode.value });
+            }                
+            break;
         case 'initData':
             renderKeysTypes(message.keyTypes);
             renderKeys(message.keys);
@@ -211,6 +223,10 @@ prevPage.addEventListener('click',()=>{
 pageNum.addEventListener('change',()=>{
     vscode.postMessage({command: 'page', page: pageNum.value })
 });
+
+openRLayout.addEventListener('click',()=>{
+    vscode.postMessage({command: 'openRLayout'});
+})
 
 window.addEventListener("DOMContentLoaded", () => {
     vscode.postMessage({comand:'init'});
