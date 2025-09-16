@@ -1,9 +1,7 @@
 import * as vscode from "vscode";
-import { execFileSync, spawnSync } from "child_process";
+import { spawnSync } from "child_process";
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
-import { text } from "stream/consumers";
 
 export function activate(context: vscode.ExtensionContext) {
 
@@ -181,13 +179,14 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
                     break;
                 }
                 case "page":{
-                    page_num = message.page ;
+                    page_num = parseInt(message.page) ;
                     const keys = get_keys( selectedKeyType );
                     webviewPanel.webview.postMessage({
                         command: 'updateKeys',
                         keys : keys ,
                         page : page_num 
                     });
+                    break;
                 }
                 case "viewMode":{
                     selectedViewMode = message.viewMode ;

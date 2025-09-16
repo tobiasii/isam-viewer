@@ -1,71 +1,45 @@
-# isam-viewer README
+# ISAM Viewer – VS Code Extension
 
-This is the README for your extension "isam-viewer". After writing up a brief description, we recommend including the following sections.
+Uma extensão do **Visual Studio Code** que fornece um **Custom Editor** para arquivos **ISAM**, permitindo:
 
-## Features
-
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
-
-For example if there is an image subfolder under your extension project workspace:
-
-\!\[feature X\]\(images/feature-x.png\)
-
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
-
-## Requirements
-
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
-
-## Extension Settings
-
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
-
-For example:
-
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
+- **Visualização em Hexadecimal**: abra e inspecione o conteúdo bruto em modo hex.
+- **Visualização em Árvore**: caso exista um arquivo JSON descrevendo a estrutura do registro, é possível ver os dados em um formato hierárquico amigável.
 
 ---
 
-## Following extension guidelines
+## 📸 Preview
 
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
+<!-- Substitua o caminho abaixo pelo arquivo real da imagem que você vai adicionar -->
+![Preview do ISAM Viewer](images/preview.png)
 
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+---
 
-## Working with Markdown
+## 🛠️ Uso
 
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
+1. Abra um arquivo **.isam** no VS Code.
+2. O ISAM Viewer será usado automaticamente como **Custom Editor**.
+3. Por padrão, o conteúdo será exibido em **Hex**.
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
+### Exibição em Árvore
 
-## For more information
+- Crie um arquivo JSON que descreva a estrutura do registro.
+- Salve esse arquivo no mesmo diretório do arquivo `.isam`, com o mesmo nome-base.  
+  Por exemplo:
 
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
+- Quando o JSON estiver presente, a extensão mostrará automaticamente uma aba “Árvore” com a representação dos campos.
 
-**Enjoy!**
+---
+
+## 🧩 Exemplo de Arquivo de Estrutura (JSON)
+
+<!-- Substitua este bloco pelo seu exemplo real -->
+```json
+{
+"nomeRegistro": "Cliente",
+"campos": [
+  { "nome": "id", "tipo": "int", "offset": 0, "tamanho": 4 },
+  { "nome": "nome", "tipo": "string", "offset": 4, "tamanho": 50 },
+  { "nome": "idade", "tipo": "int", "offset": 54, "tamanho": 2 }
+]
+}
+
