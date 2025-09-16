@@ -9,7 +9,6 @@ Uma extensão do **Visual Studio Code** que fornece um **Custom Editor** para ar
 
 ## 📸 Preview
 
-<!-- Substitua o caminho abaixo pelo arquivo real da imagem que você vai adicionar -->
 ![Preview do ISAM Viewer](images/preview.png)
 
 ---
@@ -17,8 +16,8 @@ Uma extensão do **Visual Studio Code** que fornece um **Custom Editor** para ar
 ## 🛠️ Uso
 
 1. Abra um arquivo **.isam** no VS Code.
-2. O ISAM Viewer será usado automaticamente como **Custom Editor**.
-3. Por padrão, o conteúdo será exibido em **Hex**.
+2. O ISAM Viewer será uma opção de **Custom Editor**.
+3. Por padrão, o conteúdo será exibido em **Hex Mode**.
 
 ### Exibição em Árvore
 
@@ -32,14 +31,52 @@ Uma extensão do **Visual Studio Code** que fornece um **Custom Editor** para ar
 
 ## 🧩 Exemplo de Arquivo de Estrutura (JSON)
 
-<!-- Substitua este bloco pelo seu exemplo real -->
 ```json
 {
-"nomeRegistro": "Cliente",
-"campos": [
-  { "nome": "id", "tipo": "int", "offset": 0, "tamanho": 4 },
-  { "nome": "nome", "tipo": "string", "offset": 4, "tamanho": 50 },
-  { "nome": "idade", "tipo": "int", "offset": 54, "tamanho": 2 }
-]
+    "REG-GRP": {
+        "picture": "GROUP",
+        "offset": "1368",
+        "size": "64",
+        "child": {
+            "GRP-CHAVE": {
+                "picture": "PIC9(3)",
+                "offset": "1368",
+                "size": "3",
+                "child":{
+                    "GRP-COD": {
+                        "picture": "PIC9(3)",
+                        "offset": "1368",
+                        "size": "3"
+                    }   
+                }
+            },
+            "GRP-NOME": {
+                "picture": "PICX(20)",
+                "offset": "1371",
+                "size": "20"
+            },
+            "GRP-TIP": {
+                "picture": "PICX",
+                "offset": "1391",
+                "size": "1"
+            },
+            "GRP-CLAS": {
+                "picture": "PICX(20)",
+                "offset": "1392",
+                "size": "20"
+            },
+            "GRP-NAO-WEB": {
+                "picture": "PIC9",
+                "offset": "1412",
+                "size": "1"
+            },
+            "GRP-NAO-FL": {
+                "picture": "PIC9",
+                "offset": "1413",
+                "size": "1"
+            }
+        }
+    }
 }
-
+```
+![Preview do ISAM Viewer Tree](images/record_layout.png)
