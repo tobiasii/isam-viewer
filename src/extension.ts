@@ -60,6 +60,7 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
 
         const styleUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "style.css"));
         const scriptPath = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "main.js"));
+        const codiconUri = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
         const htmlPath = webviewPanel.webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "index.html"));
 
         const page_size = 24 ;
@@ -98,6 +99,13 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
             const start_pos = parseInt(layout.offset) - base_offset ;
             const end_pos = start_pos + parseInt(layout.size);
             const obj : any = !layout.picture.includes("GROUP") || (Object.keys(layout.child??{}).length ) == 0 ? { value: parseValue( layout.picture , record.split(';').slice( start_pos , end_pos ) ) } : {} ;
+            obj['component_index'] = key_def[selectedKeyType].reduce((prev:number,curr:any,index:number)=>{
+                const def_end = parseInt(curr.offset) + parseInt(curr.length) ;
+                if ( start_pos >= curr.offset && end_pos <= def_end  )
+                    return index ;
+                else
+                    return prev ;
+            }, undefined ) 
             obj['picture'] = layout.picture ;
 
             Object.entries(layout.child??{}).forEach(([id,sub_layout])=>{
@@ -135,7 +143,9 @@ class BinaryEditorProvider implements vscode.CustomReadonlyEditorProvider {
         }
 
         let html = fs.readFileSync(htmlPath.fsPath,'utf-8');
-		webviewPanel.webview.html = html.replace("{{styleUri}}", styleUri.toString() ).replace("{{scriptUri}}", scriptPath.toString() ) ;        
+		webviewPanel.webview.html = html.replace("{{styleUri}}", styleUri.toString() )
+                                        .replace("{{scriptUri}}", scriptPath.toString() )         
+                                        .replace("{{codiconUri}}", codiconUri.toString() ) ;        
         
         webviewPanel.webview.onDidReceiveMessage(message =>{
             switch( message.command ){

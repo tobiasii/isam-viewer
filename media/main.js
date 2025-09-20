@@ -8,6 +8,7 @@ const keyList = document.getElementById("keyList");
 const nextPage = document.getElementById("nextBtn");
 const prevPage = document.getElementById("prevBtn");
 const pageNum = document.getElementById("pageNum");
+const refresh = document.getElementById("refreshBtn");
 const viewMode = document.getElementById("viewMode");
 const openRLayout = document.getElementById("openRLayout");
 
@@ -24,7 +25,8 @@ function renderKeyBytes(str) {
     let html = '<table class="keyBytes"><tr>';
     const bytes = str.split(';');
     for( let i = 0 ; i < bytes.length ; i++ ){
-        const decoded = bytes[i] !== '00' ? decoder.decode( new Uint8Array([ parseInt(bytes[i],16) ])) : '00' ;
+        const byte = parseInt(bytes[i],16);
+        const decoded = byte > 31 ? decoder.decode( new Uint8Array([ byte ])) : bytes[i] ;
         if( decoded.length > 1 )
             html += '<td class="keyByteItemHex">' + bytes[i] + '</td>';
         else
@@ -122,18 +124,17 @@ function renderHex(content,key_def) {
 function renderTree(obj) {
     if (typeof obj !== "object" || obj === null) return '<span>'+obj+'</span>';
     let html = '<ul class="tree">';
-    for (const [k,v] of Object.entries(obj).filter(([k,v])=> k != 'picture' ) ) {
-        const hasChildren = typeof v === 'object' && v !== null && Object.keys(v).filter((k)=>k !== 'picture' && k !== 'value' ).length > 0;
-        const icon = hasChildren ? '▼' : ' ';
-        const title = v.picture ? `title=${v.picture}` : '';
+    for (const [k,v] of Object.entries(obj).filter(([k,v])=> k != 'picture' && k != 'component_index' ) ) {
+        const hasChildren = typeof v === 'object' && v !== null && Object.keys(v).filter((k)=>k !== 'picture' && k !== 'value' && k !== 'component_index' ).length > 0;
         const value = v.value??v ;
-        html += '<li>' +
-            `<span class="key" ${title}>`+k+':</span> ' +
-            (hasChildren ? '<span class="toggle">'+icon+'</span>' : '') ;
+        const set_color = v.component_index !== undefined ? `style="color: var(--vscode-button-background);"` : '' ;
+        const key_comp = v.component_index !== undefined ? `Key Component ${v.component_index}` : '' ;
+        const title = v.picture ? `title="${v.picture.replace('\"','')}\n${key_comp}"` : '';
+        html += `<li><span class="${ hasChildren ? "toggle" : "" }" ${title} ${set_color}>${k}:</span>` ;
         if (hasChildren) {
             html += renderTree(v);
         } else {
-            html += `<span class="value" ${title} contenteditable="true" data-key="`+k+'">'+value+'</span>';
+            html += `<span class="value" ${title} contenteditable="true" data-key="${k}">${value}</span>`;
         }
         html += '</li>';
     }
@@ -143,16 +144,16 @@ function renderTree(obj) {
 
 function attachTreeEvents(container) {
     container.querySelectorAll("span.toggle").forEach(t => {
-        t.addEventListener("click", () => {
+        t.addEventListener("click", function (){
             const li = t.parentElement;
             const childUl = li.querySelector("ul");
             if (!childUl) return;
             if (childUl.style.display === 'none') {
                 childUl.style.display = 'block';
-                t.innerText = '▼';
+                t.classList.remove('open');
             } else {
                 childUl.style.display = 'none';
-                t.innerText = '▶';
+                t.classList.add('open')
             }
         });
     });
@@ -223,6 +224,10 @@ prevPage.addEventListener('click',()=>{
 pageNum.addEventListener('change',()=>{
     vscode.postMessage({command: 'page', page: pageNum.value })
 });
+
+refresh.addEventListener('click',()=>{
+    vscode.postMessage({command: 'page', page: pageNum.value})
+})
 
 openRLayout.addEventListener('click',()=>{
     vscode.postMessage({command: 'openRLayout'});

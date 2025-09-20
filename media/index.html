@@ -3,15 +3,16 @@
     <head>
         <meta charset="UTF-8">
         <link rel="stylesheet" type="text/css" href="{{styleUri}}">
+        <link rel="stylesheet" type="text/css" href="{{codiconUri}}">
     </head>
     <body>
         <div id="container">
             <div id="leftPane">
                 <div id="leftHeader">
-                    <button class="lhBtn" id="refreshBtn" title="Recarregar">⟳</button>
-                    <button class="lhBtn" id="prevBtn" title="prev page">◀</button>
+                    <button class="lhBtn" id="refreshBtn" title="Recarregar"><span class="codicon codicon-refresh"></span></button>
+                    <button class="lhBtn" id="prevBtn" title="prev page"><span class="codicon codicon-arrow-left"></span></button>
                     <input  id="pageNum" type="number" min="0" step="1">
-                    <button class="lhBtn" id="nextBtn" title="next page">▶</button>
+                    <button class="lhBtn" id="nextBtn" title="next page"><span class="codicon codicon-arrow-right"></span></button>
                     <select id="keyTypeSelect"></select>
                 </div>
                 <ul id="keyList"></ul>
@@ -20,7 +21,7 @@
             <div id="rightPane">
                 <div id="rightHeader">
                     <select id="viewMode"></select>
-                    <button class="lhBtn" id="openRLayout" title="Abrir Record Layout">🗎</button>
+                    <button class="lhBtn" id="openRLayout" title="Abrir Record Layout"><span class="codicon codicon-folder"></span></button>
                 </div>
                 <div id="rightContent">
                     <p>Selecione uma chave para ver os detalhes.</p>

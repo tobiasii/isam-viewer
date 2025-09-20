@@ -75,8 +75,15 @@ table.keyBytes td {
 
 ul.tree { list-style:none; padding-left:20px; }
 ul.tree li { margin:2px 0; padding: 2px 4px; }
-span.toggle { cursor:pointer; display:inline-block; width:16px; }
-span.key { cursor:pointer; }
+.toggle { cursor: pointer; user-select: none; }
+.toggle::before {
+  content: "\25B6";
+  display: inline-block;
+  margin-right: 6px;
+  transform: rotate(90deg);
+  transition: transform 0.2s ease ;
+}
+.toggle.open::before {  transform: rotate(0deg); }
 span.value[contenteditable="false"]:focus { background: #eef; color: #000; outline:none; }
 
 select { width:100%; margin-bottom:5px; }
